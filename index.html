@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chameleon Ultra · 本地管理台</title>
+  <link rel="stylesheet" href="./assets/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <span class="logo">Chameleon Lab</span>
+    <nav>
+      <a href="#view-home" data-view="home">首页</a>
+      <span class="nav-group">MIFARE</span>
+      <a href="#view-mifare" data-view="mifare">MIFARE 1K 编辑</a>
+      <a href="#view-mfkey" data-view="mfkey">密钥侦测</a>
+      <a href="#view-emu" data-view="emu">卡片模拟</a>
+      <a href="#view-mfwrite" data-view="mfwrite">中介写卡</a>
+      <a href="#view-vblock" data-view="vblock">数值块操作</a>
+      <a href="#view-access" data-view="access">控制位转换</a>
+      <span class="nav-group">低频 / 高频</span>
+      <a href="#view-hf14a" data-view="hf14a">HF14A 扫码器</a>
+      <a href="#view-em410x" data-view="em410x">EM410x</a>
+      <span class="nav-group">系统</span>
+      <a href="#view-settings" data-view="settings">设备设置</a>
+      <a href="#view-slots" data-view="slots">卡槽管理</a>
+      <a href="#view-autopoll" data-view="autopoll">Auto-Poll</a>
+      <a href="#view-firmware" data-view="firmware">固件更新</a>
+    </nav>
+    <div class="conn">
+      <span id="status-dot"></span>
+      <button id="connect-btn">连接设备</button>
+      <span id="device-info">未连接</span>
+    </div>
+  </header>
+
+  <main id="views">
+    <!-- ============ 首页 ============ -->
+    <section class="view active" id="view-home">
+      <h1>Chameleon Ultra 本地管理台</h1>
+      <p class="sub">基于 Web Serial（USB）或 Web Bluetooth（BLE）直连设备，用于对你自己固件（v2.2.0-DAHAOREN）进行在线设置与调试。<b>单页应用</b>：连接一次即可在各功能页之间切换，连接不会丢失。完全本地运行，无需联网。</p>
+
+      <div class="card" style="margin-bottom:18px">
+        <h2 style="margin-top:0">开始</h2>
+        <p class="sub" style="margin-bottom:12px">点右上角「连接设备」前，可先用顶栏下拉框选择连接方式：<b>USB 串口</b>（数据线连接，浏览器弹出串口列表选 Chameleon Ultra，USB VID 0x6868 / PID 0x8686）或 <b>蓝牙 BLE</b>（与官方 lab 一致，浏览器扫描并选择名为 <code>ChameleonUltra</code> 的设备）。两种均需 <b>Chrome / Edge</b>。</p>
+        <button id="big-connect">连接设备</button>
+        <p class="hint">提示：设备需处于「卡片模拟 / 设置」状态（非 DFU）。USB 连接失败可重插拔；蓝牙需在系统蓝牙中先配对/靠近设备。</p>
+      </div>
+
+      <div class="grid home-cards">
+        <a href="#view-mifare" data-goto="mifare"><div class="card">
+          <h2 style="margin-top:0">MIFARE 1K 编辑器</h2>
+          <p class="sub">按块读写卡槽内模拟的 MIFARE 1K 数据（64 块 × 16 字节）。</p>
+        </div></a>
+        <a href="#view-mfkey" data-goto="mfkey"><div class="card">
+          <h2 style="margin-top:0">密钥侦测</h2>
+          <p class="sub">候选密钥扇区爆破、Nested / Darkside / HardNested 获取密钥、PRNG 类型检测。</p>
+        </div></a>
+        <a href="#view-emu" data-goto="emu"><div class="card">
+          <h2 style="margin-top:0">卡片模拟</h2>
+          <p class="sub">激活槽切换、Gen1a/Gen2/防冲突/写模式设置、导入导出模拟卡 dump。</p>
+        </div></a>
+        <a href="#view-mfwrite" data-goto="mfwrite"><div class="card">
+          <h2 style="margin-top:0">中介写卡</h2>
+          <p class="sub">用已知密钥从实体卡读块，写入模拟槽，支持整卡克隆。</p>
+        </div></a>
+        <a href="#view-vblock" data-goto="vblock"><div class="card">
+          <h2 style="margin-top:0">数值块操作</h2>
+          <p class="sub">MIFARE 数值块增 / 减 / 恢复（Value Block Manipulate）。</p>
+        </div></a>
+        <a href="#view-access" data-goto="access"><div class="card">
+          <h2 style="margin-top:0">控制位转换</h2>
+          <p class="sub">访问位（3 字节）与各块权限互转，纯本地计算。</p>
+        </div></a>
+        <a href="#view-hf14a" data-goto="hf14a"><div class="card">
+          <h2 style="margin-top:0">HF14A 扫码器</h2>
+          <p class="sub">扫描 13.56MHz 卡片（UID/ATQA/SAK/ATS）、克隆防冲突数据、原始指令。</p>
+        </div></a>
+        <a href="#view-em410x" data-goto="em410x"><div class="card">
+          <h2 style="margin-top:0">EM410x 低频</h2>
+          <p class="sub">扫描 125kHz ID 卡、读写模拟 ID、写入 T55xx 可改写卡。</p>
+        </div></a>
+        <a href="#view-settings" data-goto="settings"><div class="card">
+          <h2 style="margin-top:0">设备设置</h2>
+          <p class="sub">设备模式、动画、BLE 配对密钥、按键动作、电池、保存/重置。</p>
+        </div></a>
+        <a href="#view-slots" data-goto="slots"><div class="card">
+          <h2 style="margin-top:0">卡槽管理</h2>
+          <p class="sub">8 卡槽激活/启用（HF/LF）、昵称、保存设置。</p>
+        </div></a>
+        <a href="#view-autopoll" data-goto="autopoll"><div class="card">
+          <h2 style="margin-top:0">Auto-Poll 配置</h2>
+          <p class="sub">自定义固件功能：被动 RF 唤醒轮询开关、轮询间隔（默认 350ms）。</p>
+        </div></a>
+        <a href="#view-firmware" data-goto="firmware"><div class="card">
+          <h2 style="margin-top:0">固件更新</h2>
+          <p class="sub">进入 DFU、查询版本、分片上传固件（需 nRF DFU 格式）。</p>
+        </div></a>
+      </div>
+
+      <p class="hint">本工具基于开源 SDK <code>chameleon-ultra.js</code> 构建，离线打包于 <code>vendor/chameleon-ultra.mjs</code>。Auto-Poll 与 MIFARE EMU 块读写为本仓库扩展命令。</p>
+    </section>
+
+    <!-- ============ 设备设置 ============ -->
+    <section class="view" id="view-settings">
+      <h1>设备设置</h1>
+      <div class="toolbar">
+        <button class="primary" data-act="read">读取设备设置</button>
+      </div>
+      <p class="sub">设备模式、动画、按键动作、BLE、电池。修改后点「保存设置」写入 Flash。</p>
+
+      <div class="grid">
+        <div class="card">
+          <label>设备模式</label>
+          <div class="row">
+            <select id="device-mode"></select>
+            <button class="small" data-act="set-mode">设置</button>
+          </div>
+          <p class="hint">TAG=卡片模拟；READER=读卡器模式（读实体卡用）。</p>
+        </div>
+        <div class="card">
+          <label>动画模式</label>
+          <div class="row">
+            <select id="anim-mode"></select>
+            <button class="small" data-act="set-anim">设置</button>
+          </div>
+        </div>
+        <div class="card">
+          <label>电池</label>
+          <div id="battery" class="mono">—</div>
+        </div>
+      </div>
+
+      <h2>按键动作</h2>
+      <div class="grid">
+        <div class="card">
+          <label>按键 A · 短按</label>
+          <div class="row"><select id="btnA-short"></select><button class="small" data-act="set-btnA-short">设置</button></div>
+        </div>
+        <div class="card">
+          <label>按键 A · 长按</label>
+          <div class="row"><select id="btnA-long"></select><button class="small" data-act="set-btnA-long">设置</button></div>
+          <p class="hint">选「自动轮询」= 设备按「定时轮询」自动轮询（基于 Auto-Poll 配置 bit1，真实固件命令 1042）。</p>
+        </div>
+        <div class="card">
+          <label>按键 B · 短按</label>
+          <div class="row"><select id="btnB-short"></select><button class="small" data-act="set-btnB-short">设置</button></div>
+        </div>
+        <div class="card">
+          <label>按键 B · 长按</label>
+          <div class="row"><select id="btnB-long"></select><button class="small" data-act="set-btnB-long">设置</button></div>
+          <p class="hint">选「自动轮询」= 设备按「定时轮询」自动轮询（基于 Auto-Poll 配置 bit1，真实固件命令 1042）。</p>
+        </div>
+      </div>
+
+      <h2>BLE 配对</h2>
+      <div class="grid">
+        <div class="card">
+          <label>配对密钥</label>
+          <div class="row">
+            <input type="text" id="ble-key" maxlength="16" placeholder="当前密钥" />
+            <button class="small" data-act="set-ble-key">设置</button>
+          </div>
+          <p class="hint">默认 12345。修改后建议删除所有已配对（下方）。</p>
+        </div>
+        <div class="card">
+          <label>配对模式</label>
+          <div class="row">
+            <label class="row"><input type="checkbox" id="ble-mode" /> 需要配对才能连接</label>
+            <button class="small" data-act="set-ble-mode">设置</button>
+          </div>
+        </div>
+        <div class="card">
+          <label>已配对设备</label>
+          <div class="row">
+            <button class="small danger" data-act="del-bonds">删除所有配对</button>
+          </div>
+        </div>
+      </div>
+
+      <h2>持久化</h2>
+      <div class="row">
+        <button data-act="save">保存设置</button>
+        <button class="ghost" data-act="reset">恢复出厂设置</button>
+        <button class="ghost danger" data-act="wipe">清空 FDS（删除所有卡槽数据）</button>
+      </div>
+      <p class="hint">「保存设置」把当前配置写入 Flash；「清空 FDS」会抹掉所有卡槽卡片数据，谨慎使用。</p>
+    </section>
+
+    <!-- ============ 卡槽管理 ============ -->
+    <section class="view" id="view-slots">
+      <h1>卡槽管理</h1>
+      <p class="sub">8 个卡槽，每个可同时装载 HF（13.56MHz）与 LF（125kHz）两张卡。当前激活槽会被读卡器场唤醒。</p>
+
+      <div class="row" style="margin-bottom:14px">
+        <button id="refresh">刷新</button>
+        <button data-act="save">保存设置</button>
+        <span id="active-badge" class="badge">激活槽: —</span>
+      </div>
+
+      <div class="card" style="padding:0;overflow:auto">
+        <table id="slot-table">
+          <thead>
+            <tr>
+              <th>槽</th><th>激活</th><th>HF 启用</th><th>LF 启用</th>
+              <th>HF 昵称</th><th>LF 昵称</th><th>操作</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="hint">勾选启用后需点「保存设置」才会写入 Flash；「设为当前」切换激活槽（立即生效）。</p>
+    </section>
+
+    <!-- ============ MIFARE 1K 编辑器 ============ -->
+    <section class="view" id="view-mifare">
+      <h1>MIFARE 1K 编辑器</h1>
+      <p class="sub">读写当前激活卡槽内<strong>模拟</strong>的 MIFARE 1K 数据（64 块 × 16 字节，共 1024 字节）。MIFARE 为 HF（13.56MHz）卡片。操作针对所选卡槽的 MF1 存储区，与卡槽当前标签类型无关。</p>
+
+      <div class="card" style="margin-bottom:16px">
+        <div class="row">
+          <label style="margin:0">卡槽</label>
+          <select id="slot"></select>
+          <button id="read-all">读取全部</button>
+          <button id="write-all">写入全部</button>
+          <button class="ghost small" id="clear-all">清空</button>
+        </div>
+        <div class="row">
+          <label style="margin:0">默认密钥 (Key A/B, 12 hex)</label>
+          <input type="text" id="defkey" value="FFFFFFFFFFFF" maxlength="12" style="min-width:140px" class="mono">
+          <button class="ghost small" id="apply-key">应用默认密钥到尾块</button>
+          <span class="hint" style="margin:0">将 16 个扇区尾块的 Key A/B 填为默认密钥，保留访问位。</span>
+        </div>
+        <div class="row">
+          <button class="ghost small" id="export-bin">导出 .dump</button>
+          <button class="ghost small" id="import-bin">导入 .dump</button>
+          <input type="file" id="import-file" accept=".dump,.bin" style="display:none">
+          <span id="op-state" class="badge"></span>
+        </div>
+      </div>
+
+      <div class="card" style="padding:14px;overflow:auto;max-height:62vh">
+        <div id="blocks" class="blk-list"></div>
+      </div>
+      <p class="hint">橙色块号为扇区尾块（含密钥与访问位）。单块「写」仅写入该块；「写入全部」按 32 块分片写入。读取/写入前会自动将所选卡槽设为激活槽。</p>
+    </section>
+
+    <!-- ============ Auto-Poll 配置 ============ -->
+    <section class="view" id="view-autopoll">
+      <h1>Auto-Poll 配置</h1>
+      <p class="sub">本页面向你的自定义固件（<b>v2.2.0-DAHAOREN</b>）扩展命令：被动 RF 场唤醒后自动轮询/选槽。属于非官方功能，官方固件无此命令。</p>
+
+      <div class="card" style="margin-bottom:16px">
+        <h2 style="margin-top:0">轮询开关</h2>
+        <div class="row">
+          <label style="display:flex;gap:8px;align-items:center;margin:0">
+            <input type="checkbox" id="smart"> 智能选槽 (Smart Select, bit0)
+          </label>
+          <label style="display:flex;gap:8px;align-items:center;margin:0">
+            <input type="checkbox" id="timer"> 定时轮询 (Timer Rotate, bit1)
+          </label>
+        </div>
+        <p class="hint">智能选槽：被读卡器场唤醒时，按最近命中记录自动切换到对应卡槽。定时轮询：按固定间隔在卡槽间轮转模拟。</p>
+      </div>
+
+      <div class="card" style="margin-bottom:16px">
+        <h2 style="margin-top:0">轮询间隔</h2>
+        <div class="row">
+          <input type="number" id="interval" min="50" max="65535" step="10">
+          <span class="hint" style="margin:0">毫秒 (ms)，默认 350。建议 ≥ 200 以避免频繁切换影响稳定性。</span>
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom:16px">
+        <button id="read">读取配置</button>
+        <button id="save">保存配置</button>
+        <button class="ghost small" data-preset="0">关闭</button>
+        <button class="ghost small" data-preset="1">仅智能选槽</button>
+        <button class="ghost small" data-preset="2">仅定时轮询</button>
+        <button class="ghost small" data-preset="3">全部开启</button>
+      </div>
+
+      <div class="card" style="padding:14px">
+        <div class="row">
+          <span class="badge" id="enable-badge">enable: —</span>
+          <span class="badge" id="interval-badge">interval: —</span>
+          <span class="badge" id="lastslot-badge">上次认证槽: —</span>
+        </div>
+        <p class="hint">「上次认证槽」为只读，显示最近一次被真实读卡器认证命中的卡槽号（0–7），用于验证智能选槽是否生效。</p>
+      </div>
+    </section>
+
+    <!-- ============ MIFARE 密钥侦测 ============ -->
+    <section class="view" id="view-mfkey">
+      <h1>MIFARE 密钥侦测</h1>
+      <p class="sub">对实体卡（设备需处于<b>读卡器模式</b>）进行密钥爆破与获取。设备模式可在「设备设置」切换。</p>
+
+      <h2>1 · 候选密钥扇区爆破</h2>
+      <div class="card">
+        <label>候选密钥（每行一个 12 hex，最多 48 个）</label>
+        <textarea id="mfkey-keys" class="mono" rows="5" style="width:100%">FFFFFFFFFFFF
+000000000000
+A0B0C0D0E0F0
+A1B2C3D4E5F6
+B0B1B2B3B4B5
+4D3A99C351DD
+1A2B3C4D5E6F
+D3F7C883A0C8
+196511227819
+3E8A7B6C5D4E</textarea>
+        <div class="row" style="margin-top:8px">
+          <label style="margin:0">扇区范围</label>
+          <input type="number" id="mfkey-sec-start" min="0" max="39" value="0" style="width:64px">
+          <span>~</span>
+          <input type="number" id="mfkey-sec-end" min="0" max="39" value="15" style="width:64px">
+          <button id="mfkey-run">开始爆破</button>
+          <span class="badge" id="mfkey-state">—</span>
+        </div>
+        <p class="hint">设备逐个扇区尝试这些密钥，报告命中的密钥。勾选「仅 Key A」只测 A 密钥。</p>
+        <label class="row"><input type="checkbox" id="mfkey-only-a"> 仅测试 Key A（不测 Key B）</label>
+      </div>
+      <div class="card">
+        <table id="mfkey-result"><thead><tr><th>扇区</th><th>命中密钥 (12 hex)</th></tr></thead><tbody></tbody></table>
+      </div>
+
+      <h2>2 · 密钥获取（Nested / Darkside / HardNested）</h2>
+      <p class="sub">这些命令返回攻击所需的随机数参数（nt/par），通常需要配合离线破解工具（如 mfkey32/mfkey64）还原密钥。此处直接展示原始结果，供离线分析。</p>
+      <div class="card">
+        <div class="row">
+          <label style="margin:0">已知块</label><input type="number" id="acq-block" value="0" style="width:64px">
+          <label style="margin:0">已知密钥</label><input type="text" id="acq-key" value="FFFFFFFFFFFF" maxlength="12" class="mono" style="width:120px">
+          <label style="margin:0">类型</label>
+          <select id="acq-keytype"><option value="96">Key A (0x60)</option><option value="97">Key B (0x61)</option></select>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <label style="margin:0">目标块</label><input type="number" id="acq-target" value="4" style="width:64px">
+          <label style="margin:0">目标类型</label>
+          <select id="acq-targettype"><option value="96">Key A (0x60)</option><option value="97">Key B (0x61)</option></select>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button id="acq-static">Static Nested</button>
+          <button id="acq-nested">Nested</button>
+          <button id="acq-darkside">Darkside</button>
+          <button id="acq-hard">HardNested</button>
+          <button class="ghost small" id="acq-prng">检测 PRNG 类型</button>
+        </div>
+        <pre class="mono" id="acq-result" style="white-space:pre-wrap;margin-top:10px">结果将显示在这里。</pre>
+      </div>
+    </section>
+
+    <!-- ============ MIFARE 卡片模拟 ============ -->
+    <section class="view" id="view-emu">
+      <h1>MIFARE 卡片模拟</h1>
+      <p class="sub">管理当前模拟的 MIFARE 卡：切换激活槽、设置模拟选项、导入/导出 dump 到模拟槽。</p>
+
+      <div class="card">
+        <h2 style="margin-top:0">激活槽 & 模拟选项</h2>
+        <div class="row">
+          <label style="margin:0">激活槽</label>
+          <select id="emu-slot"></select>
+          <button class="small" id="emu-set-active">设为激活</button>
+          <span id="emu-active-badge" class="badge">激活: —</span>
+        </div>
+        <div class="row" style="flex-wrap:wrap;gap:14px;margin-top:8px">
+          <label class="row"><input type="checkbox" id="emu-gen1a"> Gen1a 魔术卡</label>
+          <label class="row"><input type="checkbox" id="emu-gen2"> Gen2 魔术卡</label>
+          <label class="row"><input type="checkbox" id="emu-anticoll"> 防冲突 UID 模式</label>
+          <label class="row"><input type="checkbox" id="emu-detection"> 检测日志</label>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <label style="margin:0">写模式</label>
+          <select id="emu-writemode">
+            <option value="0">普通 (NORMAL)</option>
+            <option value="1">拒绝写 (DENIED)</option>
+            <option value="2">欺骗 (DECEIVE)</option>
+            <option value="3">影子 RAM (SHADOW)</option>
+          </select>
+          <button class="small" id="emu-apply-settings">应用模拟设置</button>
+          <button class="ghost small" id="emu-refresh-settings">读取设置</button>
+        </div>
+        <p class="hint">设置针对当前激活槽的 MF1 模拟行为；改变后需点「应用模拟设置」。</p>
+      </div>
+
+      <div class="card">
+        <h2 style="margin-top:0">Dump 导入 / 导出（模拟槽）</h2>
+        <div class="row">
+          <button id="emu-load">载入文件到模拟槽</button>
+          <button class="ghost small" id="emu-save">保存模拟槽为 dump</button>
+          <input type="file" id="emu-file" accept=".dump,.bin" style="display:none">
+          <span id="emu-state" class="badge"></span>
+        </div>
+        <p class="hint">载入：读取本地 .dump（1024 字节）分片写入当前激活模拟槽；保存：从模拟槽读取全部 64 块导出为 .dump。</p>
+        <button class="ghost small" id="emu-open-editor">打开块编辑器 →</button>
+      </div>
+    </section>
+
+    <!-- ============ MIFARE 中介写卡 ============ -->
+    <section class="view" id="view-mfwrite">
+      <h1>MIFARE 中介写卡</h1>
+      <p class="sub">以读卡器模式用已知密钥读取实体卡块，再写入当前模拟槽。设备需处于 <b>READER 模式</b>。</p>
+      <div class="card">
+        <h2 style="margin-top:0">单块读取 → 写入模拟槽</h2>
+        <div class="row">
+          <label style="margin:0">实体卡块</label><input type="number" id="mw-block" value="0" style="width:64px">
+          <label style="margin:0">密钥类型</label>
+          <select id="mw-keytype"><option value="96">Key A</option><option value="97">Key B</option></select>
+          <input type="text" id="mw-key" value="FFFFFFFFFFFF" maxlength="12" class="mono" style="width:120px">
+          <button id="mw-read">读取实体卡块</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <label style="margin:0">读取到的数据 (16 字节 hex)</label>
+          <input type="text" id="mw-data" class="mono" style="width:340px" placeholder="32 hex">
+        </div>
+        <div class="row" style="margin-top:8px">
+          <label style="margin:0">目标模拟块</label><input type="number" id="mw-target" value="0" style="width:64px">
+          <button id="mw-write">写入模拟槽</button>
+          <span class="badge" id="mw-state">—</span>
+        </div>
+        <p class="hint">先读取实体卡块得到数据，再写入到模拟槽对应块。</p>
+      </div>
+      <div class="card">
+        <h2 style="margin-top:0">整卡克隆（假设全扇区同密钥）</h2>
+        <div class="row">
+          <label style="margin:0">密钥类型</label>
+          <select id="mw-clone-keytype"><option value="96">Key A</option><option value="97">Key B</option></select>
+          <input type="text" id="mw-clone-key" value="FFFFFFFFFFFF" maxlength="12" class="mono" style="width:120px">
+          <button id="mw-clone">开始克隆 64 块</button>
+          <span class="badge" id="mw-clone-state">—</span>
+        </div>
+        <div class="row" style="margin-top:8px"><progress id="mw-progress" value="0" max="64" style="width:100%"></progress></div>
+        <p class="hint">逐块读取实体卡并写入模拟槽；尾块（含密钥）也会被复制。读取失败时停止并提示。</p>
+      </div>
+    </section>
+
+    <!-- ============ MIFARE 数值块操作 ============ -->
+    <section class="view" id="view-vblock">
+      <h1>MIFARE 数值块操作</h1>
+      <p class="sub">对数值块执行 增 / 减 / 恢复（Value Block Manipulate）。需设备处于 <b>READER 模式</b>并以已知密钥认证。</p>
+      <div class="card">
+        <div class="row">
+          <label style="margin:0">源块</label><input type="number" id="vb-src" value="1" style="width:64px">
+          <label style="margin:0">密钥类型</label><select id="vb-keytype"><option value="96">Key A</option><option value="97">Key B</option></select>
+          <input type="text" id="vb-key" value="FFFFFFFFFFFF" maxlength="12" class="mono" style="width:120px">
+        </div>
+        <div class="row" style="margin-top:8px">
+          <label style="margin:0">操作</label>
+          <select id="vb-op"><option value="192">减 (DECREMENT 0xC0)</option><option value="193">增 (INCREMENT 0xC1)</option><option value="194">恢复/复制 (RESTORE 0xC2)</option></select>
+          <label style="margin:0">操作数 (0~2147483647)</label><input type="number" id="vb-operand" value="1" style="width:140px">
+        </div>
+        <div class="row" style="margin-top:8px">
+          <label style="margin:0">目标块</label><input type="number" id="vb-dst" value="1" style="width:64px">
+          <button id="vb-run">执行</button>
+          <span class="badge" id="vb-state">—</span>
+        </div>
+        <p class="hint">减/增：src 值 ∓ operand → 写入 dst 块（结果留在 dst）。恢复：把 src 值复制到 dst。执行后可在下方读取目标块当前值。</p>
+      </div>
+      <div class="card">
+        <h2 style="margin-top:0">读取数值块当前值</h2>
+        <div class="row">
+          <button id="vb-read">读取目标块</button>
+          <span class="badge" id="vb-value">值: —</span>
+        </div>
+        <p class="hint">数值块的值存于字节 0–3（小端 int32），需为合法数值块才能正确读出。</p>
+      </div>
+      <div class="card">
+        <h2 style="margin-top:0">数值块格式编码助手</h2>
+        <div class="row">
+          <label style="margin:0">数值 (int32)</label><input type="number" id="vb-enc-val" value="100" style="width:120px">
+          <label style="margin:0">Addr (0~255)</label><input type="number" id="vb-enc-addr" value="1" style="width:80px">
+          <button id="vb-enc">编码为 16 字节</button>
+        </div>
+        <p class="mono" id="vb-enc-out" style="margin-top:8px">—</p>
+        <p class="hint">数值块格式：Value, ~Value, Value, Addr, ~Addr, Addr, ~Addr, Addr（小端）。</p>
+      </div>
+    </section>
+
+    <!-- ============ MIFARE 控制位转换 ============ -->
+    <section class="view" id="view-access">
+      <h1>MIFARE 控制位转换</h1>
+      <p class="sub">在「访问位字节（3 字节 / 12 位）」与「各块权限」之间互转。纯本地计算，无需连接设备。</p>
+      <div class="card">
+        <h2 style="margin-top:0">尾块访问位 → 权限</h2>
+        <div class="row">
+          <label style="margin:0">访问位 (6 hex，如 FF0780)</label>
+          <input type="text" id="ac-hex" value="FF0780" maxlength="6" class="mono" style="width:120px">
+          <button id="ac-decode">解析</button>
+        </div>
+        <div id="ac-decode-out" class="perm-table" style="margin-top:10px"></div>
+      </div>
+      <div class="card">
+        <h2 style="margin-top:0">权限 → 访问位</h2>
+        <p class="sub">为数据块 0/1/2 与尾块选择 C1/C2/C3（0 或 1），自动计算访问位字节（含 GPB）。</p>
+        <div id="ac-build" style="margin-top:8px"></div>
+        <button id="ac-build-run" style="margin-top:8px">计算访问位</button>
+        <p class="mono" id="ac-build-out" style="margin-top:8px">—</p>
+      </div>
+    </section>
+
+    <!-- ============ HF14A 扫码器 ============ -->
+    <section class="view" id="view-hf14a">
+      <h1>HF14A 扫码器</h1>
+      <p class="sub">扫描 13.56MHz 卡片（UID/ATQA/SAK/ATS）、克隆防冲突数据、查看/修改 HF14A 设置、发送原始 APDU。</p>
+      <div class="card">
+        <div class="row">
+          <button id="hf-scan">扫描卡片</button>
+          <button class="ghost small" id="hf-anticoll-get">读取当前防冲突数据</button>
+          <span class="badge" id="hf-state">—</span>
+        </div>
+        <div id="hf-tags" class="perm-table" style="margin-top:10px"></div>
+      </div>
+      <div class="card">
+        <h2 style="margin-top:0">防冲突数据 (克隆 UID)</h2>
+        <div class="row">
+          <label style="margin:0">UID</label><input type="text" id="hf-uid" class="mono" style="width:200px" placeholder="如 12345678">
+          <label style="margin:0">ATQA</label><input type="text" id="hf-atqa" class="mono" style="width:80px" placeholder="0408">
+          <label style="margin:0">SAK</label><input type="text" id="hf-sak" class="mono" style="width:60px" placeholder="08">
+          <label style="margin:0">ATS</label><input type="text" id="hf-ats" class="mono" style="width:160px" placeholder="可空">
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button id="hf-anticoll-set">写入防冲突数据</button>
+        </div>
+        <p class="hint">写入后设备模拟该 UID/ATQA/SAK 的卡片。需处于卡片模拟模式且对应槽激活。</p>
+      </div>
+      <div class="card">
+        <h2 style="margin-top:0">HF14A 设置</h2>
+        <div class="row">
+          <label style="margin:0">BCC 模式</label>
+          <select id="hf-bcc"><option value="0">标准</option><option value="1">按 UID 计算</option><option value="2">用块 0 BCC</option></select>
+          <label style="margin:0">CL2</label>
+          <select id="hf-cl2"><option value="0">标准</option><option value="1">强制</option><option value="2">跳过</option></select>
+          <label style="margin:0">CL3</label>
+          <select id="hf-cl3"><option value="0">标准</option><option value="1">强制</option><option value="2">跳过</option></select>
+          <label style="margin:0">RATS</label>
+          <select id="hf-rats"><option value="0">标准</option><option value="1">强制</option><option value="2">跳过</option></select>
+          <button class="small" id="hf-settings-set">设置</button>
+          <button class="ghost small" id="hf-settings-get">读取</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2 style="margin-top:0">原始指令 (HF14A Raw)</h2>
+        <div class="row">
+          <label style="margin:0">数据 (hex)</label><input type="text" id="hf-raw-in" class="mono" style="width:320px" placeholder="如 6000F557">
+          <label class="row"><input type="checkbox" id="hf-raw-crc" checked> 自动 CRC</label>
+          <label class="row"><input type="checkbox" id="hf-raw-select" checked> 自动选卡</label>
+          <button id="hf-raw-send">发送</button>
+        </div>
+        <pre class="mono" id="hf-raw-out" style="white-space:pre-wrap;margin-top:8px">—</pre>
+      </div>
+    </section>
+
+    <!-- ============ EM410x 低频 ============ -->
+    <section class="view" id="view-em410x">
+      <h1>EM410x 低频 (125kHz)</h1>
+      <p class="sub">扫描 125kHz ID 卡、读写模拟 ID、写入 T55xx 可改写卡。设备需支持 LF（EM410x 相关功能）。</p>
+      <div class="card">
+        <div class="row">
+          <button id="em-scan">扫描 EM410x</button>
+          <button class="ghost small" id="em-get">读取模拟 ID</button>
+          <span class="badge" id="em-state">—</span>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <label style="margin:0">模拟 ID (10 hex)</label><input type="text" id="em-id" class="mono" style="width:200px" placeholder="如 0A1B2C3D4E">
+          <button id="em-set">写入模拟 ID</button>
+        </div>
+        <p class="hint">EM410x ID 为 40 位（5 字节 / 10 hex）。</p>
+      </div>
+      <div class="card">
+        <h2 style="margin-top:0">写入 T55xx 可改写卡</h2>
+        <div class="row">
+          <label style="margin:0">目标 ID (10 hex)</label><input type="text" id="em-t55-id" class="mono" style="width:200px">
+          <label style="margin:0">新口令 (8 hex)</label><input type="text" id="em-t55-newkey" class="mono" style="width:120px" value="51243648">
+          <label style="margin:0">旧口令 (8 hex，可多行)</label><input type="text" id="em-t55-oldkey" class="mono" style="width:120px" value="51243648">
+          <button id="em-t55-write">写入 T55xx</button>
+        </div>
+        <p class="hint">把目标 ID 写入一张 T55xx 卡，使其模拟该 EM410x ID。需设备处于读卡器模式且贴近 T55xx 卡。</p>
+      </div>
+    </section>
+
+    <!-- ============ 固件更新 DFU ============ -->
+    <section class="view" id="view-firmware">
+      <h1>固件更新 (DFU)</h1>
+      <p class="sub">进入 DFU 引导、查询版本、分片上传固件。需 nRF DFU 格式（init 包 + 固件）。<b>操作有风险，请确认文件来源可靠。</b></p>
+      <div class="card">
+        <div class="row">
+          <button id="fw-enter">进入 DFU</button>
+          <button class="ghost small" id="fw-proto">查询协议</button>
+          <button class="ghost small" id="fw-hwver">硬件版本</button>
+          <button class="ghost small" id="fw-fwver">固件版本</button>
+          <button class="ghost small danger" id="fw-abort">中止 DFU</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <span class="badge" id="fw-state">—</span>
+          <span class="badge" id="fw-proto-badge">协议: —</span>
+        </div>
+      </div>
+      <div class="card">
+        <h2 style="margin-top:0">上传固件</h2>
+        <div class="row">
+          <label style="margin:0">Init 包 (.dat)</label>
+          <input type="file" id="fw-init" accept=".dat,.bin">
+          <label style="margin:0">固件 (.bin)</label>
+          <input type="file" id="fw-bin" accept=".bin,.img">
+          <button id="fw-upload">开始上传</button>
+        </div>
+        <div class="row" style="margin-top:8px"><progress id="fw-progress" value="0" max="100" style="width:100%"></progress></div>
+        <p class="hint">流程：进入 DFU → 发送 COMMAND 对象（init 包）→ 发送 DATA 对象（固件，按 MTU 分片）→ 校验 CRC → 执行。上传完成后设备会自动重启。</p>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="./assets/main.js"></script>
+</body>
+</html>

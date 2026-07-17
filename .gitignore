@@ -1,0 +1,9 @@
+# macOS
+.DS_Store
+
+# 本地环境
+node_modules/
+*.log
+
+# 工作区元数据
+.workbuddy/

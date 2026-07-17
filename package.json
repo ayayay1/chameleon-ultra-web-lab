@@ -1,0 +1,17 @@
+{
+  "name": "chameleon-ultra-web-lab",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Chameleon Ultra 本地管理台 (Web Lab) — 单页离线管理工具，支持自定义固件 v2.2.0-DAHAOREN (Auto-Poll 扩展)",
+  "targetFirmware": "v2.2.0-DAHAOREN",
+  "type": "module",
+  "scripts": {
+    "start": "./serve.sh",
+    "serve": "./serve.sh"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ayayay1/chameleon-ultra-web-lab.git"
+  }
+}
