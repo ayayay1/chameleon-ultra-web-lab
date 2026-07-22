@@ -56,23 +56,36 @@ function setupTabs () {
   setGoView(show)
 }
 
-setupCommonUI()
-initDeviceSettings()
-initSlots()
-initMifare1k()
-initAutopoll()
-initMfkey()
-initEmu()
-initMfwrite()
-initVblock()
-initAccess()
-initHf14a()
-initEm410x()
-initFirmware()
-initDeviceInfo()
-initMfu()
-initHid()
-initRead()
-initLibrary()
-initAppSettings()
+// ---- 全局错误横幅：把任何未捕获的报错显示在页面底部，方便排查 ----
+function showErrorBanner (msg) {
+  let b = document.getElementById('error-banner')
+  if (!b) {
+    b = document.createElement('div')
+    b.id = 'error-banner'
+    b.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:99999;background:#b00020;color:#fff;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;padding:10px 14px;white-space:pre-wrap;max-height:45vh;overflow:auto;box-shadow:0 -2px 8px rgba(0,0,0,.4)'
+    document.body.appendChild(b)
+  }
+  b.textContent += msg + '\n'
+}
+window.addEventListener('error', (e) => {
+  showErrorBanner('[error] ' + (e.message || e.error) + (e.filename ? ` @ ${e.filename}:${e.lineno}:${e.colno}` : ''))
+})
+window.addEventListener('unhandledrejection', (e) => {
+  const r = e.reason
+  showErrorBanner('[未处理的 Promise] ' + (r && (r.stack || r.message) || String(r)))
+})
+// 供各 feature 模块在 catch 中复用同一错误横幅
+window.showErrorBanner = showErrorBanner
+
+// 逐个初始化各视图；任一视图初始化抛错都不应阻断其余视图。
+const INITS = [
+  initDeviceSettings, initSlots, initMifare1k, initAutopoll, initMfkey,
+  initEmu, initMfwrite, initVblock, initAccess, initHf14a, initEm410x,
+  initFirmware, initDeviceInfo, initMfu, initHid, initRead, initLibrary, initAppSettings,
+]
+for (const fn of INITS) {
+  try { fn() } catch (e) {
+    showErrorBanner(`[init ${fn.name}] 失败: ${e && (e.stack || e.message) || e}`)
+  }
+}
 setupTabs()

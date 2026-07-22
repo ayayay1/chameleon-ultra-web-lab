@@ -76,38 +76,52 @@ export function initHf14a () {
   }
 
   $('hf-sector-scan').addEventListener('click', async () => {
-    if (!ultra.isConnected()) { toast('请先连接设备', 'warn'); return }
-    stopHf() // 避免与高频扫描抢占设备/模式
-    const hf = document.getElementById('hf-hfscan'); if (hf) hf.checked = false
-    // 先确认有卡在场，并从 SAK 判断 1K(16扇区) / 4K(40扇区)
-    const pre = await run('预扫描卡片', u => u.cmdHf14aScan())
-    if (!pre || !pre.length) { $('hf-sector-state').textContent = '未检测到卡片'; return }
-    const sak = pre[0].sak
-    const is4k = !!(sak && sak.length && (sak[0] & 0x20))
-    const numSectors = is4k ? 40 : 16
-    const dict = DICTS[$('hf-dict').value] || DICTS.default
-    let keys
-    try { keys = dict.map(k => toBuf(k)) } catch (e) { toast('字典 hex 非法: ' + e.message, 'err'); return }
-    const mask = buildMask(numSectors)
-    $('hf-sector-state').textContent = `扫描中… (${numSectors} 扇区 × ${keys.length} 密钥，约需数十秒，请保持卡片在场)`
-    const res = await run('各扇区密钥扫描', u => u.cmdMf1CheckKeysOfSectors({ keys, mask }))
-    if (res === null) { $('hf-sector-state').textContent = '失败（请确认卡片在场，重连后重试）'; return }
-    const rows = []
-    let foundCount = 0
-    lastFound = []
-    for (let s = 0; s < numSectors; s++) {
-      const ka = res.sectorKeys[s * 2] || null
-      const kb = res.sectorKeys[s * 2 + 1] || null
-      const hit = !!(ka || kb)
-      if (hit) { foundCount++; lastFound.push({ sector: s, keyA: ka, keyB: kb }) }
-      rows.push(`<tr><td>${s}</td><td class="${hit ? 'ok-text' : 'err-text'}">${hit ? '命中' : '—'}</td><td class="mono">${ka ? hex(ka) : '—'}</td><td class="mono">${kb ? hex(kb) : '—'}</td></tr>`)
+    const btn = $('hf-sector-scan')
+    btn.disabled = true
+    const oldText = btn.textContent
+    btn.textContent = '扫描中…'
+    try {
+      if (!ultra.isConnected()) { toast('请先连接设备', 'warn'); return }
+      stopHf() // 避免与高频扫描抢占设备/模式
+      const hf = document.getElementById('hf-hfscan'); if (hf) hf.checked = false
+      // 先确认有卡在场，并从 SAK 判断 1K(16扇区) / 4K(40扇区)
+      const pre = await run('预扫描卡片', u => u.cmdHf14aScan())
+      if (!pre || !pre.length) { $('hf-sector-state').textContent = '未检测到卡片'; return }
+      const sak = pre[0].sak
+      const is4k = !!(sak && sak.length && (sak[0] & 0x20))
+      const numSectors = is4k ? 40 : 16
+      const dict = DICTS[$('hf-dict').value] || DICTS.default
+      let keys
+      try { keys = dict.map(k => toBuf(k)) } catch (e) { toast('字典 hex 非法: ' + e.message, 'err'); return }
+      const mask = buildMask(numSectors)
+      $('hf-sector-state').textContent = `扫描中… (${numSectors} 扇区 × ${keys.length} 密钥，约需数十秒，请保持卡片在场)`
+      const res = await run('各扇区密钥扫描', u => u.cmdMf1CheckKeysOfSectors({ keys, mask }))
+      if (res === null) { $('hf-sector-state').textContent = '失败（请确认卡片在场，重连后重试）'; return }
+      const rows = []
+      let foundCount = 0
+      lastFound = []
+      for (let s = 0; s < numSectors; s++) {
+        const ka = res.sectorKeys[s * 2] || null
+        const kb = res.sectorKeys[s * 2 + 1] || null
+        const hit = !!(ka || kb)
+        if (hit) { foundCount++; lastFound.push({ sector: s, keyA: ka, keyB: kb }) }
+        rows.push(`<tr><td>${s}</td><td class="${hit ? 'ok-text' : 'err-text'}">${hit ? '命中' : '—'}</td><td class="mono">${ka ? hex(ka) : '—'}</td><td class="mono">${kb ? hex(kb) : '—'}</td></tr>`)
+      }
+      $('hf-sector-table').innerHTML =
+        `<table><thead><tr><th>扇区</th><th>结果</th><th>KEY A</th><th>KEY B</th></tr></thead><tbody>${rows.join('')}</tbody></table>`
+      $('hf-sector-state').textContent = foundCount
+        ? `命中 ${foundCount}/${numSectors} 扇区`
+        : `0/${numSectors} 扇区命中（卡片可能用非默认密钥，或不是 MIFARE Classic）`
+      toast('各扇区密钥扫描完成', 'ok')
+    } catch (e) {
+      // 任何未预期错误都显式提示，避免“点了没反应”
+      toast('扫描异常: ' + String(e?.message ?? e), 'err')
+      $('hf-sector-state').textContent = '异常：' + String(e?.message ?? e)
+      window.showErrorBanner?.('[hf-sector-scan] ' + (e && (e.stack || e.message) || e))
+    } finally {
+      btn.disabled = false
+      btn.textContent = oldText
     }
-    $('hf-sector-table').innerHTML =
-      `<table><thead><tr><th>扇区</th><th>结果</th><th>KEY A</th><th>KEY B</th></tr></thead><tbody>${rows.join('')}</tbody></table>`
-    $('hf-sector-state').textContent = foundCount
-      ? `命中 ${foundCount}/${numSectors} 扇区`
-      : `0/${numSectors} 扇区命中（卡片可能用非默认密钥，或不是 MIFARE Classic）`
-    toast('各扇区密钥扫描完成', 'ok')
   })
 
   // ---- 下一步：带入密钥侦测（Nested / Static / 字典爆破）----
