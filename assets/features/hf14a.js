@@ -138,6 +138,19 @@ export function initHf14a () {
       }
       $('hf-sector-table').innerHTML =
         `<table><thead><tr><th>扇区</th><th>结果</th><th>KEY A</th><th>KEY B</th></tr></thead><tbody>${rows.join('')}</tbody></table>`
+      // 原始返回：found 位图 + 命中项，便于核对固件 CMD2012 布局（扇区 0 缺失通常是固件侧问题）
+      const foundHex = res.found && res.found.length ? hex(res.found) : '—'
+      const dump = []
+      for (let s = 0; s < 40; s++) {
+        const ka = res.sectorKeys[s * 2]
+        const kb = res.sectorKeys[s * 2 + 1]
+        if (ka || kb) dump.push(`s${s}:A=${ka ? hex(ka) : '—'} B=${kb ? hex(kb) : '—'}`)
+      }
+      const rawEl = $('hf-sector-raw')
+      if (rawEl) rawEl.textContent =
+        `found(10B, MSB-first): ${foundHex}\n` +
+        `found bit0/1 = 扇区0 的 KEY_A/KEY_B；bit2/3 = 扇区1 …；为 0 表示该密钥设备“未报找到”\n` +
+        `命中项: ${dump.join('  ') || '(无)'}`
       $('hf-sector-state').textContent = foundCount
         ? `命中 ${foundCount}/${numSectors} 扇区`
         : `0/${numSectors} 扇区命中（卡片可能用非默认密钥，或不是 MIFARE Classic）`
