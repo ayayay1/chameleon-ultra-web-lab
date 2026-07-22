@@ -1,6 +1,6 @@
 # Chameleon Ultra 本地管理台 (Web Lab)
 
-> **版本：v1.0.0** · 目标固件：`v2.2.0-DAHAOREN`（含 Auto-Poll 扩展）· 首次稳定发布
+> **版本：v1.1.0** · 目标固件：`v2.2.0-DAHAOREN`（含 Auto-Poll 扩展）· 补齐官方 CU GUI 功能集
 
 基于开源 SDK [`chameleon-ultra.js`](https://github.com/taichunmin/chameleon-ultra.js) 构建的**完全本地、离线**网页管理工具，用于对你自己的固件（`v2.2.0-DAHAOREN`）进行在线设置与调试。
 
@@ -12,11 +12,24 @@
 
 | 视图（标签页） | 说明 |
 |------|------|
-| 首页 | 连接入口 + 功能概览 |
+| 首页 | 连接入口 + 功能概览 + 设备信息卡（型号 / 固件 / 芯片 ID / 支持命令数） |
 | 设备设置 | 设备模式、动画、BLE 配对密钥、按键动作（含长按「自动轮询」）、电池、保存/重置 |
 | 卡槽管理 | 8 卡槽激活/启用（HF/LF）、昵称、保存设置 |
 | MIFARE 1K | 按块读写卡槽内**模拟**的 MIFARE 1K 数据（64 块 × 16 字节），支持导入/导出 `.dump`、批量填默认密钥到扇区尾块 |
 | Auto-Poll | **自定义固件扩展**：被动 RF 唤醒自动轮询/选槽开关 + 轮询间隔 |
+| MIFARE 密钥侦测 | 候选密钥扇区爆破 + Nested / Darkside / HardNested 采集 + Static Encrypted Nested / NT 距离 / NT 电平 + 侦测日志读取 |
+| 卡片模拟 (EMU) | 把激活卡槽设为模拟标签、中介写卡（dump→卡槽） |
+| 中介写卡 | 将 dump 数据写入卡槽模拟区（含块偏移） |
+| 数值块 | MIFARE 数值块（Value Block）读写与增减操作 |
+| 控制位 | 扇区尾块访问控制位（Access Bits）解析与转换 |
+| HF14A | ISO14443-A 扫描（UID/ATQA/SAK/ATS）、防冲突与原始帧收发 |
+| EM410x | LF 125kHz EM410x 扫描与模拟 ID 写入 |
+| MIFARE Ultralight | NTAG 模拟数据：页读写、版本/签名/计数器、写模式/魔术/侦测设置、侦测日志 |
+| HID Prox | LF 125kHz HID Prox 扫描、模拟写入、写入 T55xx |
+| 读卡 | 统一扫描 HF14A / EM410x / HID Prox，结果可一键保存到收藏库 |
+| 收藏库 | 基于 IndexedDB 的卡片持久化，支持载入到卡槽、删除 |
+| 固件更新 | DFU 固件升级（含自定义固件） |
+| 应用设置 | 主题（深 / 浅）与语言偏好，持久化到 localStorage |
 
 ## 运行
 

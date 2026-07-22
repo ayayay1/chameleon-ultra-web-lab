@@ -74,4 +74,25 @@ export function initMfkey () {
     const t = await u.cmdMf1TestPrngType()
     return `PRNG 类型: ${Mf1PrngType[t] ?? t}\n(STATIC=固定随机数 / WEAK=弱随机数 / HARD=不可预测)`
   }))
+
+  // ---- 3. extended acquisition (static encrypted nested / NT distance / NT level) ----
+  $('acq-static-enc').addEventListener('click', () => runAcq('Static Encrypted Nested', u =>
+    u.cmdMf1AcquireStaticEncryptedNested({ key: toBuf($('acq-key').value) })))
+  $('acq-ntdist').addEventListener('click', () => runAcq('NT 距离', u =>
+    u.cmdMf1TestNtDistance(knownFromUI())))
+  $('acq-ntlevel').addEventListener('click', () => runAcq('NT 电平', u =>
+    u.cmdMf1TestNtLevel()))
+
+  // ---- 4. MIFARE 侦测日志 ----
+  $('mfk-det-read').addEventListener('click', async () => {
+    if (!ultra.isConnected()) { toast('请先连接设备', 'warn'); return }
+    await run('读取侦测日志', async (u) => {
+      const enabled = await u.cmdMf1GetDetectionEnable()
+      const count = await u.cmdMf1GetDetectionCount()
+      const logs = count ? await u.cmdMf1GetDetectionLogs(0) : []
+      $('mfk-det-out').textContent =
+        `侦测开关: ${enabled ? '开' : '关'}\n日志数: ${count}\n` +
+        logs.map((l, i) => `#${i} block=${l.block} keyB=${l.isKeyB} nested=${l.isNested} uid=${hex(l.uid)} nt=${hex(l.nt)} nr=${hex(l.nr)} ar=${hex(l.ar)}`).join('\n')
+    })
+  })
 }

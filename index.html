@@ -18,14 +18,19 @@
       <a href="#view-mfwrite" data-view="mfwrite">中介写卡</a>
       <a href="#view-vblock" data-view="vblock">数值块操作</a>
       <a href="#view-access" data-view="access">控制位转换</a>
+      <a href="#view-mfu" data-view="mfu">MIFARE Ultralight</a>
       <span class="nav-group">低频 / 高频</span>
       <a href="#view-hf14a" data-view="hf14a">HF14A 扫码器</a>
       <a href="#view-em410x" data-view="em410x">EM410x</a>
+      <a href="#view-hid" data-view="hid">HID Prox</a>
+      <a href="#view-read" data-view="read">读卡</a>
       <span class="nav-group">系统</span>
       <a href="#view-settings" data-view="settings">设备设置</a>
       <a href="#view-slots" data-view="slots">卡槽管理</a>
       <a href="#view-autopoll" data-view="autopoll">Auto-Poll</a>
       <a href="#view-firmware" data-view="firmware">固件更新</a>
+      <a href="#view-library" data-view="library">收藏库</a>
+      <a href="#view-appset" data-view="appset">应用设置</a>
     </nav>
     <div class="conn">
       <span id="status-dot"></span>
@@ -45,6 +50,12 @@
         <p class="sub" style="margin-bottom:12px">点右上角「连接设备」前，可先用顶栏下拉框选择连接方式：<b>USB 串口</b>（数据线连接，浏览器弹出串口列表选 Chameleon Ultra，USB VID 0x6868 / PID 0x8686）或 <b>蓝牙 BLE</b>（与官方 lab 一致，浏览器扫描并选择名为 <code>ChameleonUltra</code> 的设备）。两种均需 <b>Chrome / Edge</b>。</p>
         <button id="big-connect">连接设备</button>
         <p class="hint">提示：设备需处于「卡片模拟 / 设置」状态（非 DFU）。USB 连接失败可重插拔；蓝牙需在系统蓝牙中先配对/靠近设备。</p>
+      </div>
+
+      <div class="card" style="margin-bottom:18px">
+        <h2 style="margin-top:0">设备信息</h2>
+        <div class="row"><button id="devinfo-refresh">刷新设备信息</button></div>
+        <div id="devinfo-body" class="perm-table" style="margin-top:8px">连接设备后点「刷新设备信息」。</div>
       </div>
 
       <div class="grid home-cards">
@@ -79,6 +90,26 @@
         <a href="#view-em410x" data-goto="em410x"><div class="card">
           <h2 style="margin-top:0">EM410x 低频</h2>
           <p class="sub">扫描 125kHz ID 卡、读写模拟 ID、写入 T55xx 可改写卡。</p>
+        </div></a>
+        <a href="#view-mfu" data-goto="mfu"><div class="card">
+          <h2 style="margin-top:0">MIFARE Ultralight</h2>
+          <p class="sub">MIFARE Ultralight / NTAG 模拟：页读写、版本/签名/计数器、魔术模式。</p>
+        </div></a>
+        <a href="#view-hid" data-goto="hid"><div class="card">
+          <h2 style="margin-top:0">HID Prox</h2>
+          <p class="sub">125kHz HID 卡扫描、模拟、写入 T55xx 可改写卡。</p>
+        </div></a>
+        <a href="#view-read" data-goto="read"><div class="card">
+          <h2 style="margin-top:0">读卡</h2>
+          <p class="sub">统一扫描 HF14A / EM410x / HID Prox，结果可保存到收藏库。</p>
+        </div></a>
+        <a href="#view-library" data-goto="library"><div class="card">
+          <h2 style="margin-top:0">收藏库</h2>
+          <p class="sub">本地持久化保存的卡片记录（IndexedDB），可载入卡槽或删除。</p>
+        </div></a>
+        <a href="#view-appset" data-goto="appset"><div class="card">
+          <h2 style="margin-top:0">应用设置</h2>
+          <p class="sub">主题（深/浅）与语言偏好，localStorage 持久化。</p>
         </div></a>
         <a href="#view-settings" data-goto="settings"><div class="card">
           <h2 style="margin-top:0">设备设置</h2>
@@ -342,9 +373,19 @@ D3F7C883A0C8
           <button id="acq-nested">Nested</button>
           <button id="acq-darkside">Darkside</button>
           <button id="acq-hard">HardNested</button>
+          <button id="acq-static-enc">Static Encrypted Nested</button>
+          <button id="acq-ntdist">NT 距离</button>
+          <button id="acq-ntlevel">NT 电平</button>
           <button class="ghost small" id="acq-prng">检测 PRNG 类型</button>
         </div>
         <pre class="mono" id="acq-result" style="white-space:pre-wrap;margin-top:10px">结果将显示在这里。</pre>
+      </div>
+
+      <h2>3 · MIFARE 侦测日志 (MFKey32)</h2>
+      <p class="sub">记录读卡器对卡片的认证尝试（含 nonce），可用于离线还原密钥。</p>
+      <div class="card">
+        <div class="row"><button id="mfk-det-read">读取日志</button></div>
+        <pre class="mono" id="mfk-det-out" style="white-space:pre-wrap;margin-top:8px">—</pre>
       </div>
     </section>
 
@@ -604,6 +645,196 @@ D3F7C883A0C8
         </div>
         <div class="row" style="margin-top:8px"><progress id="fw-progress" value="0" max="100" style="width:100%"></progress></div>
         <p class="hint">流程：进入 DFU → 发送 COMMAND 对象（init 包）→ 发送 DATA 对象（固件，按 MTU 分片）→ 校验 CRC → 执行。上传完成后设备会自动重启。</p>
+      </div>
+    </section>
+
+    <!-- ============ MIFARE Ultralight / NTAG ============ -->
+    <section class="view" id="view-mfu">
+      <h1>MIFARE Ultralight / NTAG (MFU)</h1>
+      <p class="sub">读写当前激活卡槽的 MFU 模拟数据。需先把卡槽设为 NTAG 类型并处于卡片模拟模式。</p>
+      <div class="card">
+        <div class="row">
+          <button id="mfu-set-tag">将激活槽设为 NTAG216</button>
+          <button id="mfu-read-info">读取卡片信息</button>
+          <span id="mfu-state" class="badge">—</span>
+        </div>
+        <div id="mfu-info" class="perm-table" style="margin-top:8px">点「读取卡片信息」查看页数 / 版本 / 签名 / 计数器 / 设置。</div>
+      </div>
+      <h2>页读写</h2>
+      <div class="card">
+        <div class="row">
+          <label style="margin:0">起始页</label><input type="number" id="mfu-read-offset" value="0" style="width:64px">
+          <label style="margin:0">页数</label><input type="number" id="mfu-read-count" value="16" min="1" max="128" style="width:64px">
+          <button id="mfu-read-pages">读取页</button>
+        </div>
+        <div id="mfu-read-out" class="mono" style="margin-top:8px;white-space:pre-wrap"></div>
+      </div>
+      <div class="card">
+        <div class="row">
+          <label style="margin:0">起始页</label><input type="number" id="mfu-write-offset" value="0" style="width:64px">
+          <label style="margin:0">数据 (4 字节倍数 hex)</label><input type="text" id="mfu-write-data" class="mono" style="width:220px" placeholder="如 fa5c6480">
+          <button id="mfu-write-page">写入页</button>
+        </div>
+      </div>
+      <h2>设置</h2>
+      <div class="card">
+        <div class="row" style="flex-wrap:wrap;gap:14px">
+          <label class="row"><input type="checkbox" id="mfu-magic"> 魔术模式 (UID 可写)</label>
+          <label class="row"><input type="checkbox" id="mfu-detection"> 侦测日志</label>
+          <label style="margin:0">写模式</label>
+          <select id="mfu-writemode">
+            <option value="0">普通 (NORMAL)</option>
+            <option value="1">拒绝写 (DENIED)</option>
+            <option value="2">欺骗 (DECEIVE)</option>
+            <option value="3">影子 RAM (SHADOW)</option>
+          </select>
+        </div>
+        <div class="row" style="margin-top:8px"><button id="mfu-apply-settings">应用设置</button></div>
+      </div>
+      <div class="card">
+        <h2 style="margin-top:0">计数器 / 版本 / 签名</h2>
+        <div class="row">
+          <label style="margin:0">计数器地址</label><input type="number" id="mfu-counter-addr" value="0" min="0" max="2" style="width:64px">
+          <label style="margin:0">计数值 (0~16777215)</label><input type="number" id="mfu-counter-val" value="0" style="width:140px">
+          <button id="mfu-set-counter">设置计数器</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <label style="margin:0">版本 (16 hex)</label><input type="text" id="mfu-version" class="mono" style="width:200px" placeholder="0004040201001103">
+          <button id="mfu-set-version">设置版本</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <label style="margin:0">签名 (64 hex)</label><input type="text" id="mfu-sign" class="mono" style="width:520px" placeholder="32 字节原始签名">
+          <button id="mfu-set-sign">设置签名</button>
+        </div>
+      </div>
+      <h2>侦测日志</h2>
+      <div class="card">
+        <div class="row"><button id="mfu-det-read">读取日志</button><span id="mfu-det-count" class="badge">—</span></div>
+        <div id="mfu-det-list" class="mono" style="margin-top:8px;word-break:break-all"></div>
+      </div>
+    </section>
+
+    <!-- ============ HID Prox ============ -->
+    <section class="view" id="view-hid">
+      <h1>HID Prox (LF 125kHz)</h1>
+      <p class="sub">扫描 125kHz HID 卡、读写模拟、写入 T55xx 可改写卡。</p>
+      <div class="card">
+        <div class="row">
+          <button id="hid-scan">扫描 HID Prox</button>
+          <button id="hid-set-tag">将激活槽设为 HIDProx</button>
+          <button class="ghost small" id="hid-get-emu">读取模拟</button>
+        </div>
+        <pre id="hid-scan-out" class="mono" style="white-space:pre-wrap;margin-top:8px">—</pre>
+      </div>
+      <div class="card">
+        <h2 style="margin-top:0">模拟 ID</h2>
+        <div class="row">
+          <label style="margin:0">格式</label>
+          <select id="hid-format">
+            <option value="1">H10301 (26-bit)</option>
+            <option value="2">IND26</option>
+            <option value="3">IND27</option>
+            <option value="4">INDASC27</option>
+            <option value="5">TECOM27</option>
+          </select>
+          <label style="margin:0">FC</label><input type="number" id="hid-fc" class="mono" style="width:90px">
+          <label style="margin:0">CN</label><input type="number" id="hid-cn" class="mono" style="width:110px">
+          <label style="margin:0">IL</label><input type="number" id="hid-il" class="mono" style="width:60px">
+          <label style="margin:0">OEM</label><input type="number" id="hid-oem" class="mono" style="width:70px">
+          <button id="hid-set-emu">写入模拟</button>
+        </div>
+        <pre id="hid-emu-out" class="mono" style="white-space:pre-wrap;margin-top:8px">—</pre>
+      </div>
+      <div class="card">
+        <h2 style="margin-top:0">写入 T55xx 可改写卡</h2>
+        <div class="row">
+          <label style="margin:0">格式</label>
+          <select id="hid-t55-format">
+            <option value="1">H10301 (26-bit)</option>
+            <option value="2">IND26</option>
+            <option value="3">IND27</option>
+            <option value="4">INDASC27</option>
+            <option value="5">TECOM27</option>
+          </select>
+          <label style="margin:0">FC</label><input type="number" id="hid-t55-fc" class="mono" style="width:90px">
+          <label style="margin:0">CN</label><input type="number" id="hid-t55-cn" class="mono" style="width:110px">
+          <label style="margin:0">IL</label><input type="number" id="hid-t55-il" class="mono" style="width:60px">
+          <label style="margin:0">OEM</label><input type="number" id="hid-t55-oem" class="mono" style="width:70px">
+        </div>
+        <div class="row" style="margin-top:8px">
+          <label style="margin:0">新口令 (8 hex)</label><input type="text" id="hid-t55-newkey" class="mono" style="width:120px" value="20206666">
+          <label style="margin:0">旧口令 (空格/逗号分隔, 8 hex 每个)</label><input type="text" id="hid-t55-oldkey" class="mono" style="width:240px" value="51243648">
+          <button id="hid-write-t55">写入 T55xx</button>
+        </div>
+        <p class="hint">把目标 HID 卡号写入一张 T55xx 卡，使其模拟该 HID。需设备处于读卡器模式且贴近 T55xx 卡。</p>
+      </div>
+    </section>
+
+    <!-- ============ 读卡 (统一扫描) ============ -->
+    <section class="view" id="view-read">
+      <h1>读卡 (统一扫描)</h1>
+      <p class="sub">扫描 HF14A / EM410x / HID Prox 卡片，结果可保存到收藏库（IndexedDB 本地持久化）。</p>
+      <div class="card">
+        <div class="row">
+          <button id="read-hf-btn">扫描 HF14A</button>
+          <button id="read-em-btn">扫描 EM410x</button>
+          <button id="read-hid-btn">扫描 HID Prox</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2 style="margin-top:0">HF14A</h2>
+        <pre id="read-hf" class="mono" style="white-space:pre-wrap">—</pre>
+        <button class="ghost small" id="read-save-hf">保存到收藏</button>
+      </div>
+      <div class="card">
+        <h2 style="margin-top:0">EM410x</h2>
+        <pre id="read-em" class="mono" style="white-space:pre-wrap">—</pre>
+        <button class="ghost small" id="read-save-em">保存到收藏</button>
+      </div>
+      <div class="card">
+        <h2 style="margin-top:0">HID Prox</h2>
+        <pre id="read-hid" class="mono" style="white-space:pre-wrap">—</pre>
+        <button class="ghost small" id="read-save-hid">保存到收藏</button>
+      </div>
+    </section>
+
+    <!-- ============ 收藏库 ============ -->
+    <section class="view" id="view-library">
+      <h1>收藏库 (Saved Cards)</h1>
+      <p class="sub">本地 IndexedDB 持久化保存的卡片记录。在「读卡」页扫描后可保存，这里可载入到卡槽或删除。</p>
+      <div class="row" style="margin-bottom:12px">
+        <button id="lib-refresh">刷新</button>
+      </div>
+      <div class="card" style="padding:0;overflow:auto">
+        <table id="lib-table">
+          <thead><tr><th>名称</th><th>类型</th><th>摘要</th><th>操作</th></tr></thead>
+          <tbody id="lib-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============ 应用设置 ============ -->
+    <section class="view" id="view-appset">
+      <h1>应用设置</h1>
+      <div class="card">
+        <div class="row">
+          <label style="margin:0">主题</label>
+          <select id="theme">
+            <option value="dark">深色</option>
+            <option value="light">浅色</option>
+          </select>
+        </div>
+        <p class="hint">切换后下次打开仍生效（localStorage 持久化）。</p>
+      </div>
+      <div class="card">
+        <div class="row">
+          <label style="margin:0">语言</label>
+          <select id="lang">
+            <option value="zh">简体中文</option>
+            <option value="en">English</option>
+          </select>
+        </div>
+        <p class="hint">语言偏好会保存；界面文案多语言将在后续版本完善。</p>
       </div>
     </section>
   </main>

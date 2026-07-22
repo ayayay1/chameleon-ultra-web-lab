@@ -4,8 +4,9 @@
 // lab.chameleon-ultra.cn behaviour.
 import {
   ChameleonUltra, WebserialAdapter, WebbleAdapter, Cmd, Slot, FreqType, DeviceMode,
-  AnimationMode, ButtonType, ButtonAction, Mf1KeyType, Mf1VblockOperator, Mf1EmuWriteMode,
+  AnimationMode, ButtonType, ButtonAction, Mf1KeyType, Mf1VblockOperator, Mf1EmuWriteMode, MfuEmuWriteMode,
   Mf1PrngType, Hf14aBccMode, Hf14aCascadeLevelMode, Hf14aRatsMode, TagType, Buffer,
+  HidProxFormat, DeviceModel,
   DfuFwId, DfuObjType,
 } from '../vendor/chameleon-ultra.mjs'
 
@@ -21,8 +22,9 @@ ultra.use(bleAdapter)
 
 export {
   Cmd, Slot, FreqType, DeviceMode, AnimationMode,
-  ButtonType, ButtonAction, Mf1KeyType, Mf1VblockOperator, Mf1EmuWriteMode,
+  ButtonType, ButtonAction, Mf1KeyType, Mf1VblockOperator, Mf1EmuWriteMode, MfuEmuWriteMode,
   Mf1PrngType, Hf14aBccMode, Hf14aCascadeLevelMode, Hf14aRatsMode, TagType, Buffer,
+  HidProxFormat, DeviceModel,
   DfuFwId, DfuObjType,
   serialAdapter, bleAdapter,
 }

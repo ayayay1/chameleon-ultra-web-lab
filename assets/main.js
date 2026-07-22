@@ -14,9 +14,16 @@ import { initAccess } from './features/access.js'
 import { initHf14a } from './features/hf14a.js'
 import { initEm410x } from './features/em410x.js'
 import { initFirmware } from './features/firmware.js'
+import { initDeviceInfo } from './features/device-info.js'
+import { initMfu } from './features/mfu.js'
+import { initHid } from './features/hid.js'
+import { initRead } from './features/read.js'
+import { initLibrary } from './features/library.js'
+import { initAppSettings } from './features/appset.js'
 
 const VIEWS = ['home', 'settings', 'slots', 'mifare', 'autopoll',
-  'mfkey', 'emu', 'mfwrite', 'vblock', 'access', 'hf14a', 'em410x', 'firmware']
+  'mfkey', 'emu', 'mfwrite', 'vblock', 'access', 'hf14a', 'em410x', 'firmware',
+  'mfu', 'hid', 'read', 'library', 'appset']
 
 function setupTabs () {
   const links = document.querySelectorAll('header.topbar nav a[data-view]')
@@ -61,4 +68,10 @@ initAccess()
 initHf14a()
 initEm410x()
 initFirmware()
+initDeviceInfo()
+initMfu()
+initHid()
+initRead()
+initLibrary()
+initAppSettings()
 setupTabs()
