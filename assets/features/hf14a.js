@@ -77,26 +77,55 @@ export function initHf14a () {
 
   $('hf-sector-scan').addEventListener('click', async () => {
     const btn = $('hf-sector-scan')
+    if (btn.disabled) return // 防止重复点击叠加请求
     btn.disabled = true
     const oldText = btn.textContent
     btn.textContent = '扫描中…'
+    const setState = (t) => { const el = $('hf-sector-state'); if (el) el.textContent = t }
     try {
-      if (!ultra.isConnected()) { toast('请先连接设备', 'warn'); return }
-      stopHf() // 避免与高频扫描抢占设备/模式
+      if (!ultra.isConnected()) { toast('请先连接设备', 'warn'); setState('未连接设备'); return }
+      // 先停掉高频连续扫描，并稍候让 BLE 上可能 in-flight 的扫描 settling，
+      // 否则并发的 cmdHf14aScan(2000) 会被彼此冲掉而静默失败（表现为点了没反应 / RF 不亮）。
+      stopHf()
       const hf = document.getElementById('hf-hfscan'); if (hf) hf.checked = false
-      // 先确认有卡在场，并从 SAK 判断 1K(16扇区) / 4K(40扇区)
-      const pre = await run('预扫描卡片', u => u.cmdHf14aScan())
-      if (!pre || !pre.length) { $('hf-sector-state').textContent = '未检测到卡片'; return }
+      await new Promise(r => setTimeout(r, 350))
+      // ---- ① 预扫描：确认卡片在场，并从 SAK 判断 1K(16扇区) / 4K(40扇区) ----
+      setState('① 预扫描卡片中（设备 RF 应亮起）…')
+      let pre = null, preErr = null
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          pre = await ultra.cmdHf14aScan()
+          break
+        } catch (e) {
+          preErr = e
+          setState(`① 预扫描失败，重试 (${attempt + 1}/2)…`)
+          await new Promise(r => setTimeout(r, 400))
+        }
+      }
+      if (!pre || !pre.length) {
+        const msg = '① 未检测到卡片（请贴紧卡片后重试）'
+        setState(msg); toast(msg, 'err')
+        window.showErrorBanner?.('[hf-sector-scan 预扫描] ' + (preErr && (preErr.stack || preErr.message) || preErr || 'no card'))
+        return
+      }
       const sak = pre[0].sak
       const is4k = !!(sak && sak.length && (sak[0] & 0x20))
       const numSectors = is4k ? 40 : 16
       const dict = DICTS[$('hf-dict').value] || DICTS.default
       let keys
-      try { keys = dict.map(k => toBuf(k)) } catch (e) { toast('字典 hex 非法: ' + e.message, 'err'); return }
+      try { keys = dict.map(k => toBuf(k)) } catch (e) { toast('字典 hex 非法: ' + e.message, 'err'); setState('字典格式错误'); return }
       const mask = buildMask(numSectors)
-      $('hf-sector-state').textContent = `扫描中… (${numSectors} 扇区 × ${keys.length} 密钥，约需数十秒，请保持卡片在场)`
-      const res = await run('各扇区密钥扫描', u => u.cmdMf1CheckKeysOfSectors({ keys, mask }))
-      if (res === null) { $('hf-sector-state').textContent = '失败（请确认卡片在场，重连后重试）'; return }
+      // ---- ② 逐扇区密钥字典扫描（耗时长，请保持卡片在场）----
+      setState(`② 逐扇区校验密钥中（${numSectors} 扇区 × ${keys.length} 密钥，约 30s，请保持卡片在场，RF 应亮起）…`)
+      let res = null, keyErr = null
+      try { res = await ultra.cmdMf1CheckKeysOfSectors({ keys, mask }) }
+      catch (e) { keyErr = e }
+      if (res === null || res === undefined) {
+        const msg = '② 逐扇区校验失败（确认卡片在场且固件支持该指令，可重连后重试）'
+        setState(msg); toast(msg, 'err')
+        window.showErrorBanner?.('[hf-sector-scan 校验] ' + (keyErr && (keyErr.stack || keyErr.message) || keyErr || 'null'))
+        return
+      }
       const rows = []
       let foundCount = 0
       lastFound = []
