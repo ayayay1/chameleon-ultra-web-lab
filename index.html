@@ -568,7 +568,8 @@ D3F7C883A0C8
           <summary>原始返回 (found 位图 / sectorKeys 80 项)</summary>
           <pre class="mono" id="hf-sector-raw" style="white-space:pre-wrap;margin-top:6px">—</pre>
         </details>
-        <p class="hint">对 0–15 扇区逐一尝试字典密钥，标出可读扇区与命中密钥；这是下一步字典爆破 / Nested / Static 攻击的基础。</p>
+        <p class="hint">对 0–15 扇区逐一尝试字典密钥，标出可读扇区与命中密钥；这是下一步字典爆破 / Nested / Static 攻击的基础。<br>
+        <span style="color:var(--warn,#c0392b)">⚠ 自环提示：若设备正处于某卡槽模拟状态，扫描命令可能“扫到自己”正在模拟的卡——此时扫到的 UID 与「卡槽管理」编辑器里该卡槽块#0 的 UID 完全一致，且所有扇区密钥都是默认 FFFFFFFFFFFF（属正常现象）。要扫描外部真实卡，请先在「卡槽管理」停止该卡槽模拟，再把真实卡贴近设备重扫。</span></p>
       </div>
       <div class="card">
         <h2 style="margin-top:0">下一步：利用字典或攻击破解</h2>
