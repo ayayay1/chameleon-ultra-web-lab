@@ -141,15 +141,18 @@ export function initHf14a () {
       // 原始返回：found 位图 + 命中项，便于核对固件 CMD2012 布局（扇区 0 缺失通常是固件侧问题）
       const foundHex = res.found && res.found.length ? hex(res.found) : '—'
       const dump = []
+      const hitMap = []
       for (let s = 0; s < 40; s++) {
         const ka = res.sectorKeys[s * 2]
         const kb = res.sectorKeys[s * 2 + 1]
         if (ka || kb) dump.push(`s${s}:A=${ka ? hex(ka) : '—'} B=${kb ? hex(kb) : '—'}`)
+        if (s < numSectors) hitMap.push(`s${s}:${ka ? 'A✓' : 'A✗'}${kb ? 'B✓' : 'B✗'}`)
       }
       const rawEl = $('hf-sector-raw')
       if (rawEl) rawEl.textContent =
         `found(10B, MSB-first): ${foundHex}\n` +
-        `found bit0/1 = 扇区0 的 KEY_A/KEY_B；bit2/3 = 扇区1 …；为 0 表示该密钥设备“未报找到”\n` +
+        `found 字节0-3 = FFFFFFFF → 位0-31 全 1 → 扇区0-15 的 KEY_A/KEY_B 全部命中（MIFARE 1K 共 16 扇区）；字节4-9 = 00 → 扇区16-39 设备未报（1K 无此扇区）。\n` +
+        `逐扇区命中图(0-${numSectors - 1}): ${hitMap.join('  ')}\n` +
         `命中项: ${dump.join('  ') || '(无)'}`
       $('hf-sector-state').textContent = foundCount
         ? `命中 ${foundCount}/${numSectors} 扇区`
