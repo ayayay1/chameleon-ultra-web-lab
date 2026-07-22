@@ -14,6 +14,8 @@ const serialAdapter = new WebserialAdapter()
 const bleAdapter = new WebbleAdapter()
 
 export const ultra = new ChameleonUltra()
+// BLE 链路下并行命令容易丢帧导致 5000ms 超时，缩短默认读超时以便更快失败。
+ultra.readDefaultTimeout = 3000
 // Install both adapters up-front so their connect/disconnect hooks are registered.
 // The *active* adapter (driven by the dropdown) is the one that actually handles
 // ultra.connect(); the other hook simply passes through via next().
@@ -89,15 +91,13 @@ async function refreshStatus () {
   const ok = ultra.isConnected()
   setStatus(ok)
   if (!ok) { deviceInfo = {}; updateInfoEl(); return }
-  try {
-    const [app, git, model, bat] = await Promise.all([
-      ultra.cmdGetAppVersion().catch(() => '?'),
-      ultra.cmdGetGitVersion().catch(() => '?'),
-      ultra.cmdGetDeviceModel().catch(() => null),
-      ultra.cmdGetBatteryInfo().catch(() => null),
-    ])
-    deviceInfo = { app, git, model, bat }
-  } catch (e) { toast(String(e), 'err') }
+  // 顺序读取：BLE 链路下并行命令易丢帧，导致整批 5000ms 超时。
+  const safe = async (fn, dflt) => { try { return await fn() } catch { return dflt } }
+  const app = await safe(() => ultra.cmdGetAppVersion(), '?')
+  const git = await safe(() => ultra.cmdGetGitVersion(), '')
+  const model = await safe(() => ultra.cmdGetDeviceModel(), null)
+  const bat = await safe(() => ultra.cmdGetBatteryInfo(), null)
+  deviceInfo = { app, git, model, bat }
   updateInfoEl()
 }
 
@@ -106,9 +106,18 @@ function updateInfoEl () {
   if (!el) return
   if (!ultra.isConnected()) { el.textContent = '未连接'; return }
   const { app, git, model, bat } = deviceInfo
-  const modelName = model === 0 ? 'Ultra' : model === 1 ? 'Lite' : String(model)
-  const batStr = bat ? `${bat.level}%` : ''
-  el.textContent = `v${app} · ${git} · ${modelName} · ${batStr}`
+  // 版本号优先用完整 git 描述（如 v2.2.0-DAHAOREN），缺失时退回 app 版本。
+  const ver = (git && git !== '?' && git.trim()) ? git.trim()
+    : (app && app !== '?' ? `v${app}` : '?')
+  const modelName = model === 0 ? 'Ultra' : model === 1 ? 'Lite' : (model == null ? '?' : String(model))
+  const parts = [ver, modelName]
+  if (bat && typeof bat.level === 'number') {
+    const v = bat.voltage != null ? ` · ${(bat.voltage / 1000).toFixed(2)}V` : ''
+    parts.push(`${bat.level}%${v}`)
+  } else {
+    parts.push('电量?')
+  }
+  el.textContent = parts.join(' · ')
 }
 
 function setStatus (on) {

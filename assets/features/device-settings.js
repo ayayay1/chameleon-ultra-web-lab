@@ -44,30 +44,50 @@ export function initDeviceSettings () {
   fillLong($('btnA-long'))
   fillLong($('btnB-long'))
 
+  // 单条命令容错：失败返回 dflt，绝不抛出（避免一条超时拖垮整批读取）。
+  const safe = async (fn, dflt) => { try { return await fn() } catch { return dflt } }
+
   async function refreshAll () {
-    const r = await run('读取设备设置', async (u) => {
-      const [mode, anim, bA, bAl, bB, bBl, bat, bleMode, bleKey, ap] = await Promise.all([
-        u.cmdGetDeviceMode(), u.cmdGetAnimationMode(),
-        u.cmdGetButtonPressAction(ButtonType.BUTTON_A), u.cmdGetButtonLongPressAction(ButtonType.BUTTON_A),
-        u.cmdGetButtonPressAction(ButtonType.BUTTON_B), u.cmdGetButtonLongPressAction(ButtonType.BUTTON_B),
-        u.cmdGetBatteryInfo(),
-        u.cmdBleGetPairingMode(), u.cmdBleGetPairingKey(),
-        u.cmdGetAutoPollConfig(),
-      ])
-      return { mode, anim, bA, bAl, bB, bBl, bat, bleMode, bleKey, ap }
-    })
-    if (!r) return
-    $('device-mode').value = String(r.mode)
-    $('anim-mode').value = String(r.anim)
-    $('btnA-short').value = String(r.bA)
-    $('btnB-short').value = String(r.bB)
+    if (!ultra.isConnected()) { toast('请先连接设备', 'warn'); return }
+    const st = $('settings-state')
+    if (st) st.textContent = '读取中…'
+    // 顺序读取：BLE 链路下并行命令易丢帧导致整批 5000ms 超时。
+    const mode = await safe(() => u.cmdGetDeviceMode(), null)
+    const anim = await safe(() => u.cmdGetAnimationMode(), null)
+    const bA = await safe(() => u.cmdGetButtonPressAction(ButtonType.BUTTON_A), null)
+    const bAl = await safe(() => u.cmdGetButtonLongPressAction(ButtonType.BUTTON_A), null)
+    const bB = await safe(() => u.cmdGetButtonPressAction(ButtonType.BUTTON_B), null)
+    const bBl = await safe(() => u.cmdGetButtonLongPressAction(ButtonType.BUTTON_B), null)
+    const bat = await safe(() => u.cmdGetBatteryInfo(), null)
+    const bleMode = await safe(() => u.cmdBleGetPairingMode(), null)
+    const bleKey = await safe(() => u.cmdBleGetPairingKey(), '')
+    const ap = await safe(() => u.cmdGetAutoPollConfig(), null)
+
+    if (mode != null) $('device-mode').value = String(mode)
+    if (anim != null) $('anim-mode').value = String(anim)
+    if (bA != null) $('btnA-short').value = String(bA)
+    if (bB != null) $('btnB-short').value = String(bB)
     // 自动轮询（1042 bit1）是设备级开关：开启时长按 A/B 下拉都显示「自动轮询」
-    const apOn = !!(r.ap.enable & 2)
-    $('btnA-long').value = apOn ? String(AUTO_POLL) : String(r.bAl)
-    $('btnB-long').value = apOn ? String(AUTO_POLL) : String(r.bBl)
-    $('battery').textContent = `${r.bat.level}% · ${(r.bat.voltage / 1000).toFixed(2)}V (${r.bat.voltage} mV)`
-    $('ble-mode').checked = !!r.bleMode
-    $('ble-key').value = r.bleKey
+    const apOn = ap && !!(ap.enable & 2)
+    if (apOn) {
+      $('btnA-long').value = String(AUTO_POLL)
+      $('btnB-long').value = String(AUTO_POLL)
+    } else {
+      if (bAl != null) $('btnA-long').value = String(bAl)
+      if (bBl != null) $('btnB-long').value = String(bBl)
+    }
+    $('battery').textContent = (bat && typeof bat.level === 'number')
+      ? `${bat.level}% · ${(bat.voltage / 1000).toFixed(2)}V (${bat.voltage} mV)`
+      : '读取失败'
+    if (bleMode != null) $('ble-mode').checked = !!bleMode
+    $('ble-key').value = bleKey ?? ''
+
+    const core = [mode, anim, bA, bAl, bB, bBl, bat, bleMode, ap]
+    const fails = core.filter(v => v == null).length
+    const read = core.length - fails
+    if (st) st.textContent = fails === 0 ? `已读取 ${read}/${core.length} 项`
+      : (fails === core.length ? '读取全部失败，请检查连接后重连' : `已读取 ${read}/${core.length} 项（部分失败）`)
+    if (fails === core.length) toast('设备设置读取全部失败，请检查连接或重连', 'err')
   }
   onConnected(refreshAll)
 
