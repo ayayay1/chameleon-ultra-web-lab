@@ -1,7 +1,7 @@
 // SPA entry point. Owns the single shared ChameleonUltra connection (via
 // app.js) and switches between feature views without reloading the page, so
 // the device connection survives tab navigation.
-import { setupCommonUI, connect } from './app.js'
+import { setupCommonUI, connect, setGoView } from './app.js'
 import { initDeviceSettings } from './features/device-settings.js'
 import { initSlots } from './features/slots.js'
 import { initMifare1k } from './features/mifare1k.js'
@@ -53,6 +53,7 @@ function setupTabs () {
 
   const start = (location.hash || '').replace('#view-', '') || 'home'
   show(VIEWS.includes(start) ? start : 'home')
+  setGoView(show)
 }
 
 setupCommonUI()

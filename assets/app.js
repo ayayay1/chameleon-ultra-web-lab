@@ -185,6 +185,11 @@ export function toBuf (str) {
 }
 export function cloneBuf (buf) { return Buffer.from(buf) }
 
+// ---- cross-module view navigation (registered by main.js setupTabs) ----
+let _goView = null
+export function setGoView (fn) { _goView = fn }
+export function goView (name) { if (_goView) _goView(name) }
+
 // ---- generic command runner with toast ----
 export async function run (label, fn) {
   if (!ultra.isConnected()) { toast('请先连接设备', 'warn'); return null }

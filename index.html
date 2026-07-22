@@ -539,15 +539,40 @@ D3F7C883A0C8
 
     <!-- ============ HF14A 扫码器 ============ -->
     <section class="view" id="view-hf14a">
-      <h1>HF14A 扫码器</h1>
-      <p class="sub">扫描 13.56MHz 卡片（UID/ATQA/SAK/ATS）、克隆防冲突数据、查看/修改 HF14A 设置、发送原始 APDU。</p>
+      <h1>高频扫码 (HF14A)</h1>
+      <p class="sub">13.56MHz 高频卡片连续扫描（UID/ATQA/SAK/ATS），并一键字典扫描各扇区密钥，为字典 / 攻击破解做准备。</p>
       <div class="card">
         <div class="row">
           <button id="hf-scan">扫描卡片</button>
+          <label class="row"><input type="checkbox" id="hf-hfscan"> 高频连续扫描 (≈700ms)</label>
           <button class="ghost small" id="hf-anticoll-get">读取当前防冲突数据</button>
           <span class="badge" id="hf-state">—</span>
         </div>
         <div id="hf-tags" class="perm-table" style="margin-top:10px"></div>
+        <p class="hint">高频连续扫描会每隔约 700ms 自动重扫，卡片贴近即显示；取消勾选即停止。</p>
+      </div>
+      <div class="card">
+        <h2 style="margin-top:0">各扇区密钥字典扫描</h2>
+        <div class="row">
+          <button id="hf-sector-scan" class="primary">扫描各扇区密钥 (字典)</button>
+          <label style="margin:0">字典</label>
+          <select id="hf-dict" style="min-width:200px">
+            <option value="default">常用默认密钥</option>
+            <option value="extended">扩展字典</option>
+          </select>
+          <span class="badge" id="hf-sector-state">—</span>
+        </div>
+        <div id="hf-sector-table" class="perm-table" style="margin-top:10px"></div>
+        <p class="hint">对 0–15 扇区逐一尝试字典密钥，标出可读扇区与命中密钥；这是下一步字典爆破 / Nested / Static 攻击的基础。</p>
+      </div>
+      <div class="card">
+        <h2 style="margin-top:0">下一步：利用字典或攻击破解</h2>
+        <div class="row">
+          <button id="hf-go-mfkey" class="primary">带入密钥侦测 (Nested / Static / 字典爆破)</button>
+          <button id="hf-go-read" class="ghost">读取可读扇区数据</button>
+        </div>
+        <p class="hint" id="hf-next-hint">先完成上方「扫描各扇区密钥」，再点击进入破解流程（自动带入首个命中密钥与字典）。</p>
+        <pre class="mono" id="hf-read-out" style="white-space:pre-wrap;margin-top:8px">—</pre>
       </div>
       <div class="card">
         <h2 style="margin-top:0">防冲突数据 (克隆 UID)</h2>
