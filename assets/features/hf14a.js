@@ -64,31 +64,49 @@ export function initHf14a () {
   })
 
   // ---- 各扇区密钥字典扫描 ----
+  // 掩码 80bit = 40 扇区 × 2bit(KEY_A, KEY_B)，1=跳过该密钥。
+  // sector s 的 KEY_A=bit(s*2)，KEY_B=bit(s*2+1)，按 readBitMSB(MSB 优先) 布局。
+  function buildMask (numSectors) {
+    const mask = Buffer.alloc(10) // 全 0 = 全部检查
+    for (let s = numSectors; s < 40; s++) {
+      mask[(s * 2) >> 3] |= 1 << (7 - ((s * 2) & 7))
+      mask[(s * 2 + 1) >> 3] |= 1 << (7 - ((s * 2 + 1) & 7))
+    }
+    return mask
+  }
+
   $('hf-sector-scan').addEventListener('click', async () => {
     if (!ultra.isConnected()) { toast('请先连接设备', 'warn'); return }
-    // 先确认有卡在场
+    stopHf() // 避免与高频扫描抢占设备/模式
+    const hf = document.getElementById('hf-hfscan'); if (hf) hf.checked = false
+    // 先确认有卡在场，并从 SAK 判断 1K(16扇区) / 4K(40扇区)
     const pre = await run('预扫描卡片', u => u.cmdHf14aScan())
     if (!pre || !pre.length) { $('hf-sector-state').textContent = '未检测到卡片'; return }
+    const sak = pre[0].sak
+    const is4k = !!(sak && sak.length && (sak[0] & 0x20))
+    const numSectors = is4k ? 40 : 16
     const dict = DICTS[$('hf-dict').value] || DICTS.default
     let keys
     try { keys = dict.map(k => toBuf(k)) } catch (e) { toast('字典 hex 非法: ' + e.message, 'err'); return }
-    const mask = Buffer.alloc(10)
-    for (let i = 0; i < 16; i++) mask[Math.floor(i / 8)] |= (1 << (7 - (i % 8)))
-    $('hf-sector-state').textContent = '扫描中…'
+    const mask = buildMask(numSectors)
+    $('hf-sector-state').textContent = `扫描中… (${numSectors} 扇区 × ${keys.length} 密钥，约需数十秒，请保持卡片在场)`
     const res = await run('各扇区密钥扫描', u => u.cmdMf1CheckKeysOfSectors({ keys, mask }))
-    if (res === null) { $('hf-sector-state').textContent = '失败'; return }
+    if (res === null) { $('hf-sector-state').textContent = '失败（请确认卡片在场，重连后重试）'; return }
     const rows = []
     let foundCount = 0
     lastFound = []
-    for (let i = 0; i < 16; i++) {
-      const hit = res.found.readBitMSB(i) === 1
-      const key = hit ? res.sectorKeys[i] : null
-      if (hit) { foundCount++; lastFound.push({ sector: i, key }) }
-      rows.push(`<tr><td>${i}</td><td class="${hit ? 'ok-text' : 'err-text'}">${hit ? '命中' : '—'}</td><td class="mono">${hit ? hex(key) : ''}</td></tr>`)
+    for (let s = 0; s < numSectors; s++) {
+      const ka = res.sectorKeys[s * 2] || null
+      const kb = res.sectorKeys[s * 2 + 1] || null
+      const hit = !!(ka || kb)
+      if (hit) { foundCount++; lastFound.push({ sector: s, keyA: ka, keyB: kb }) }
+      rows.push(`<tr><td>${s}</td><td class="${hit ? 'ok-text' : 'err-text'}">${hit ? '命中' : '—'}</td><td class="mono">${ka ? hex(ka) : '—'}</td><td class="mono">${kb ? hex(kb) : '—'}</td></tr>`)
     }
     $('hf-sector-table').innerHTML =
-      `<table><thead><tr><th>扇区</th><th>结果</th><th>命中密钥</th></tr></thead><tbody>${rows.join('')}</tbody></table>`
-    $('hf-sector-state').textContent = `命中 ${foundCount}/16 扇区`
+      `<table><thead><tr><th>扇区</th><th>结果</th><th>KEY A</th><th>KEY B</th></tr></thead><tbody>${rows.join('')}</tbody></table>`
+    $('hf-sector-state').textContent = foundCount
+      ? `命中 ${foundCount}/${numSectors} 扇区`
+      : `0/${numSectors} 扇区命中（卡片可能用非默认密钥，或不是 MIFARE Classic）`
     toast('各扇区密钥扫描完成', 'ok')
   })
 
@@ -97,7 +115,7 @@ export function initHf14a () {
     if (!lastFound.length) { toast('请先完成各扇区密钥扫描', 'warn'); return }
     const first = lastFound[0]
     const block = first.sector * 4
-    const keyHex = hex(first.key)
+    const keyHex = hex(first.keyA || first.keyB)
     const ak = document.getElementById('acq-key'); if (ak) ak.value = keyHex
     const ab = document.getElementById('acq-block'); if (ab) ab.value = String(block)
     const at = document.getElementById('acq-keytype'); if (at) at.value = '0' // KEY_A
@@ -112,13 +130,16 @@ export function initHf14a () {
     if (!lastFound.length) { toast('请先完成各扇区密钥扫描', 'warn'); return }
     if (!ultra.isConnected()) { toast('请先连接设备', 'warn'); return }
     let out = ''
-    for (const { sector, key } of lastFound) {
-      out += `=== 扇区 ${sector} (key ${hex(key)}) ===\n`
+    for (const { sector, keyA, keyB } of lastFound) {
+      const keyStr = hex(keyA || keyB)
+      out += `=== 扇区 ${sector} (KEY_A ${hex(keyA || Buffer.alloc(6))} / KEY_B ${hex(keyB || Buffer.alloc(6))}) ===\n`
       for (let b = 0; b < 4; b++) {
         const block = sector * 4 + b
         let data = null
         for (const kt of [Mf1KeyType.KEY_A, Mf1KeyType.KEY_B]) {
-          try { data = await ultra.cmdMf1ReadBlock({ block, keyType: kt, key }); break } catch { /* try other type */ }
+          const key = kt === Mf1KeyType.KEY_A ? keyA : keyB
+          if (!key) continue
+          try { data = await ultra.cmdMf1ReadBlock({ block, keyType: kt, key }); break } catch { /* try other */ }
         }
         out += `  块${block}: ${data ? hex(data) : '(读失败)'}\n`
       }
